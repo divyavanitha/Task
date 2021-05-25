@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
+const fs = require("fs");
+const multer = require('multer');
 
-module.exports = function auth(req, res, next) {
+function auth(req, res, next) {
     let token = req.header("Authorization");
     if (token && token.startsWith('Bearer ')) {
         // Remove Bearer from string
@@ -18,3 +20,23 @@ module.exports = function auth(req, res, next) {
     }
 }
 
+function upload(destinationPath) {
+    console.log(destinationPath);
+    if (!fs.existsSync(destinationPath)) {
+        fs.mkdirSync(destinationPath, { recursive: true });
+    }
+
+    let storage = multer.diskStorage({
+        destination: function (req, file, cb) {
+            cb(null, destinationPath);
+        },
+        filename: function (req, file, cb) {
+            cb(null, Date.now().toString() + '_' + file.originalname);
+        }
+    });
+
+    let uploaded = multer({ storage: storage, limits: { fileSize: (5000 * 1024) } });
+    return uploaded;
+}
+
+module.exports = { upload: upload, auth: auth };

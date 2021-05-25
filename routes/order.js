@@ -5,7 +5,7 @@ const {Order, validate} = require('../models/orders');
 const {Product} = require('../models/product');
 const {User} = require('../models/users');
 const Joi = require('joi');
-const auth = require("../middleware/auth");
+const {auth} = require("../middleware/auth");
 const ObjectId = require('mongodb').ObjectID;
 var moment = require('moment'); 
 
@@ -177,56 +177,40 @@ router.get('/product/count', async (req, res) => {
 
 
 router.get('/customer/list', async (req, res) => {
-   try {
-  
-        let orders =  Order.aggregate([
 
-                    { "$lookup": {
-                        "from": "users",
-                        "let": { "id": "$userId" },
-                        "pipeline": [
-                            {
-                                "$match": {
-                                    "$expr": {
-                                       
-                                        "$eq": [
-                                            "$$id",
-                                            "$_id"
-                                        ]
-                                            
-                                    }
-
-                                },
-
-                            },
-                            {"$project": {"name" : 1}},
-                          
-                        ],
-                        "as": "user"
-                    }},
+        try {
+            let orders = User.aggregate([
+            { "$lookup": {
+                "from": "orders",
+                "let": { "id": "$_id" },
+                "pipeline": [
+                    { "$match": { "$expr": { "$eq": [ "$$id", "$userId" ] } }, },
                     { "$unwind": "$product" },
-                    { "$group": {
-                         "_id": "$user",
-                         "totalProducts": { "$sum": 1 },
-                       
+                    { "$lookup": {
+                        "from": "products",
+                        "let": { "productId": "$product.productId" },
+                        "pipeline": [
+                            { "$match": { "$expr": { "$eq": ["$_id", "$$productId"] }}}
+                        ],
+                    "as": "products"
                     }},
-                    { "$sort" : { totalProducts : -1 } }
-
+                ],
+                "as": "orders"
+                }},
+                { $project: {"name":1, "orders": 1,  totalOrders: {$size: "$orders"}}}
             ]);
 
-       
 
-        let data = await orders;
+            let data = await orders;
 
-        const response = {success: true, data }
+            const response = {success: true, data }
 
-        res.send(response);
-       
-    } catch(err) {
+            res.send(response);
+        } catch(err) {
         for(i in err.errors) {
-            res.status(422).send(err.errors[i].message);
+        res.status(422).send(err.errors[i].message);
         }
-    }
+        }
 
 });
 

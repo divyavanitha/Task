@@ -1,9 +1,65 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const mongodb = require("mongodb").MongoClient;
+let url = "mongodb://localhost:27017/";
 const {Product, validate} = require('../models/product');
 const Joi = require('joi');
-const auth = require("../middleware/auth");
+const path = require('path');
+const {auth, upload} = require("../middleware/auth");
+const ObjectId = require('mongodb').ObjectID;
+var moment = require('moment'); 
+const fs = require('fs');
+var parse = require('csv-parse');
+
+router.post('/upload', [ upload( path.join(__dirname, '../upload/files/') ).fields([{ name: 'file', maxCount: 1 }]) ],  async (req, res) => {
+
+    var csvData=[];
+    let stream = fs.createReadStream(req.files.file[0].path)
+    .pipe(parse({delimiter: ':'}))
+    .on('data', function(csvrow) {
+
+        let data = csvrow.toString();
+
+        let val = data.split(',');
+            csvData.push({
+              name: val[0],
+              price: val[1],
+              status: true,
+              createdAt: Date.now()
+            }); 
+
+        })
+        .on('end',function() {
+          csvData.shift();
+
+    });
+
+    console.log(csvData);
+
+    mongodb.connect(
+          url,
+          { useNewUrlParser: true, useUnifiedTopology: true },
+          (err, client) => {
+            if (err) throw err;
+
+            client
+              .db("Task")
+              .collection("products")
+              .insertMany(csvData, (err, res) => {
+                if (err) throw err;
+
+                console.log(`Inserted: ${res.insertedCount} rows`);
+                client.close();
+              });
+          }
+        );
+
+    res.send("Successfully Inserted");
+
+});
+
+
 
 router.post('/create', auth, async (req, res) => {
 
